@@ -1,0 +1,34 @@
+[project]
+name = "workloadmigrator"
+version = "0.1.0"
+description = "Workload migration core logic and REST API"
+authors = [
+    {name = "MIR",email = "mirazimov.kr@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<=3.13.3"
+dependencies = [
+    "django (>=5.2.3,<6.0.0)",
+    "djangorestframework (>=3.16.0,<4.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-django = "^4.11.1"
+black = "^25.1.0"
+isort = "^6.0.1"
+pre-commit = "^4.2.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311", "py312", "py313"]
+
+[tool.isort]
+profile = "black"
