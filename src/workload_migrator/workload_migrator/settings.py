@@ -9,12 +9,14 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+load_dotenv(BASE_DIR / ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -37,6 +39,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "core",
 ]
 
 MIDDLEWARE = [
@@ -72,10 +76,23 @@ WSGI_APPLICATION = "workload_migrator.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
+def require_env(var_name: str) -> str:
+    """Retrieve an environment variable and raise an error if not set."""
+    value = os.getenv(var_name)
+    if not value:
+        raise RuntimeError(f"Environment variable {var_name} is not set.")
+    return value
+
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": require_env("DB_NAME"),
+        "USER": require_env("DB_USER"),
+        "PASSWORD": require_env("DB_PASSWORD"),
+        "HOST": require_env("DB_HOST"),
+        "PORT": require_env("DB_PORT"),
     }
 }
 
