@@ -40,14 +40,17 @@ class MigrationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def run(self, request, pk=None):
         """
-        Run the migration for the specified migration instance.
+        Trigger the migration asynchronously via Celery.
+        Returns a task ID which can be used for tracking.
         """
         migration = self.get_object()
-        try:
-            migration.run(simulated_minutes=0)
-            return Response({"status": migration.state})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        from core.tasks import run_migration
+
+        result = run_migration.delay(migration.id, simulated_minutes=0)
+        return Response(
+            {"task_id": result.id, "status": migration.state},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
 
 class MountPointViewSet(viewsets.ModelViewSet):
