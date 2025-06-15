@@ -1,5 +1,5 @@
 venv/
-.env
+src/workload_migrator/.env
 .idea/
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -112,7 +112,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+src/workload_migrator/.env
 .venv
 env/
 venv/
