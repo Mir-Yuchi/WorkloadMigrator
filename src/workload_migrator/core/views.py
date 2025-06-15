@@ -2,10 +2,11 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Migration, MigrationTarget, Workload
+from .models import Migration, MigrationTarget, MountPoint, Workload
 from .serializers import (
     MigrationSerializer,
     MigrationTargetSerializer,
+    MountPointSerializer,
     WorkloadSerializer,
 )
 
@@ -47,3 +48,12 @@ class MigrationViewSet(viewsets.ModelViewSet):
             return Response({"status": migration.state})
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MountPointViewSet(viewsets.ModelViewSet):
+    """
+    CRUD endpoints for MountPoint objects.
+    """
+
+    queryset = MountPoint.objects.all()
+    serializer_class = MountPointSerializer
