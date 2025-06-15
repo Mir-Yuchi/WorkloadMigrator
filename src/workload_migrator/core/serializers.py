@@ -18,9 +18,16 @@ class MountPointSerializer(serializers.ModelSerializer):
     Serializer for MountPoint model.
     """
 
+    workload = serializers.PrimaryKeyRelatedField(
+        queryset=Workload.objects.all(), required=True
+    )
+
     class Meta:
         model = MountPoint
-        fields = ["id", "mount_point_name", "total_size"]
+        fields = ["id", "workload", "mount_point_name", "total_size"]
+
+    def create(self, validated_data):
+        return super().create(validated_data)
 
 
 class WorkloadSerializer(serializers.ModelSerializer):
