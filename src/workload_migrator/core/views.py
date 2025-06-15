@@ -47,6 +47,7 @@ class MigrationViewSet(viewsets.ModelViewSet):
         from core.tasks import run_migration
 
         result = run_migration.delay(migration.id, simulated_minutes=0)
+        migration.refresh_from_db()
         return Response(
             {"task_id": result.id, "status": migration.state},
             status=status.HTTP_202_ACCEPTED,
