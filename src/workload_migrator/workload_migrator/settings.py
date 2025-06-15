@@ -16,13 +16,30 @@ from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+PROJECT_ROOT = BASE_DIR.parent
+
+# Detect if we're running in Docker
+IS_DOCKER = os.path.exists("/.dockerenv") or os.getenv("DOCKER_ENV") == "true"
+
+# Load appropriate environment file
+if IS_DOCKER:
+    env_file = PROJECT_ROOT.parent / ".env.docker"
+    print("🐳 Running in Docker - loading .env.docker")
+else:
+    env_file = PROJECT_ROOT.parent / ".env"
+    print("💻 Running locally - loading .env")
+
+if env_file.exists():
+    load_dotenv(env_file)
+    print(f"✅ Loaded environment from: {env_file}")
+else:
+    print(f"⚠️  Environment file not found: {env_file}")
 
 # Celery configuration
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 
-# Run tasks locally and in tests without an external worker
+# Run tasks locally and in tests without an external worker - configurable
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
@@ -34,8 +51,7 @@ SECRET_KEY = "django-insecure-)@a7&88rk8diwb#qtwbtw$!k(9(dc$u61ng)d)d7e=)dq3uae7
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]  # Allow all hosts for development
 
 # Application definition
 
@@ -147,6 +163,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
