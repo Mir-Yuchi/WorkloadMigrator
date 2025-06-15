@@ -6,14 +6,16 @@ authors = [
     {name = "MIR",email = "mirazimov.kr@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.11,<=3.13.3"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "django (>=5.2.3,<6.0.0)",
     "djangorestframework (>=3.16.0,<4.0.0)",
     "python-dotenv (>=1.1.0,<2.0.0)",
     "celery (>=5.5.3,<6.0.0)",
     "redis (>=6.2.0,<7.0.0)",
-    "drf-spectacular (>=0.28.0,<0.29.0)"
+    "drf-spectacular (>=0.28.0,<0.29.0)",
+    "psycopg2-binary (>=2.9.10,<3.0.0)",
+    "gunicorn (>=23.0.0,<24.0.0)"
 ]
 
 [tool.poetry]
