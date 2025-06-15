@@ -72,10 +72,12 @@ def test_full_migration_flow(client):
 
     # 5) Run Migration
     run_resp = client.post(reverse("migration-run", args=[mig_id]), format="json")
-    assert run_resp.status_code == 200
-    assert run_resp.data["status"] in ("success", "error")
+    assert run_resp.status_code == 202
+    assert "task_id" in run_resp.data
+    returned_status = run_resp.data["status"]
+    assert returned_status in ("success", "error")
 
     # 6) Check final state
-    status_resp = client.get(reverse("migration-detail", args=[mig_id]))
+    status_resp = client.get(reverse("migration-detail", args=[mig_id]), format="json")
     assert status_resp.status_code == 200
-    assert status_resp.data["state"] == run_resp.data.get("status")
+    assert status_resp.data["state"] == returned_status
