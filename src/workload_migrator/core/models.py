@@ -6,7 +6,8 @@ from django.db import models
 
 class Credentials(models.Model):
     """
-    Represents credentials for accessing a workload or cloud service.
+    Stores credentials for accessing a workload or cloud.
+    All fields are required.
     """
 
     username = models.CharField(max_length=150)
@@ -14,24 +15,26 @@ class Credentials(models.Model):
     domain = models.CharField(max_length=150)
 
     def __str__(self):
-        return f"Credentials(username={self.username}, domain={self.domain})"
+        return f"{self.username}@{self.domain}"
 
 
 class Workload(models.Model):
     """
-    Represents a workload with an IP address and associated credentials.
+    Represents a VM or workload with an immutable IP and associated credentials.
     """
 
     ip = models.GenericIPAddressField(unique=True)
-    credentials = models.OneToOneField(
-        Credentials, on_delete=models.CASCADE, related_name="workload"
+    credentials = models.ForeignKey(
+        Credentials,
+        on_delete=models.CASCADE,
+        related_name="workloads",
     )
 
     def save(self, *args, **kwargs):
         if self.pk is not None:
             orig = Workload.objects.get(pk=self.pk)
             if orig.ip != self.ip:
-                raise ValidationError("IP address cannot be changed once set.")
+                raise ValueError("IP address cannot be changed once set.")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -40,89 +43,108 @@ class Workload(models.Model):
 
 class MountPoint(models.Model):
     """
-    Represents a mount point on a workload, such as a disk or volume.
+    A storage mount point on a workload.
     """
 
     workload = models.ForeignKey(
-        Workload, on_delete=models.CASCADE, related_name="mount_points"
+        Workload,
+        on_delete=models.CASCADE,
+        related_name="mountpoints",
     )
-    mount_point_name = models.CharField(max_length=32)
-    total_size = models.PositiveIntegerField()
-
-    class Meta:
-        unique_together = ("workload", "mount_point_name")
+    mount_point_name = models.CharField(max_length=10)
+    total_size = models.PositiveIntegerField(help_text="Total size in GB")
 
     def __str__(self):
-        return f"MountPoint({self.mount_point_name} on {self.workload.ip})"
+        return f"{self.workload.ip}:{self.mount_point_name} ({self.total_size}GB)"
 
 
 class MigrationTarget(models.Model):
     """
-    Represents a target for migration, which can be a cloud service or another workload.
+    Specifies the target environment and VM for a migration.
     """
 
-    CLOUD_AWS = "aws"
-    CLOUD_AZURE = "azure"
-    CLOUD_VSPHERE = "vsphere"
-    CLOUD_VCLOUD = "vcloud"
     CLOUD_CHOICES = [
-        (CLOUD_AWS, "AWS"),
-        (CLOUD_AZURE, "Azure"),
-        (CLOUD_VSPHERE, "vSphere"),
-        (CLOUD_VCLOUD, "vCloud"),
+        ("aws", "AWS"),
+        ("azure", "Azure"),
+        ("vsphere", "vSphere"),
+        ("vcloud", "vCloud"),
     ]
 
-    cloud_type = models.CharField(max_length=16, choices=CLOUD_CHOICES)
+    cloud_type = models.CharField(
+        max_length=20,
+        choices=CLOUD_CHOICES,
+    )
     cloud_credentials = models.ForeignKey(
-        Credentials, on_delete=models.CASCADE, related_name="cloud_targets"
+        Credentials,
+        on_delete=models.CASCADE,
+        related_name="cloud_target_credentials",
     )
     target_vm = models.ForeignKey(
-        Workload, on_delete=models.CASCADE, related_name="as_target"
+        Workload,
+        on_delete=models.CASCADE,
+        related_name="as_migration_target",
     )
 
+    def clean(self):
+        if self.cloud_type not in dict(self.CLOUD_CHOICES):
+            raise ValidationError(f"Invalid cloud_type: {self.cloud_type}")
+
     def __str__(self):
-        return f"MigrationTarget(type={self.cloud_type}, vm={self.target_vm.ip})"
+        return f"MigrationTarget({self.cloud_type} -> {self.target_vm.ip})"
 
 
 class Migration(models.Model):
     """
-    Represents a migration operation from one workload to another.
+    Represents a migration from a source workload to a MigrationTarget,
+    moving only selected mount points.
     """
 
-    STATE_NOT_STARTED = "not_started"
-    STATE_RUNNING = "running"
-    STATE_ERROR = "error"
-    STATE_SUCCESS = "success"
-    STATE_CHOICES = [
-        (STATE_NOT_STARTED, "Not Started"),
-        (STATE_RUNNING, "Running"),
-        (STATE_ERROR, "Error"),
-        (STATE_SUCCESS, "Success"),
-    ]
+    class State(models.TextChoices):
+        NOT_STARTED = "not_started", "Not Started"
+        RUNNING = "running", "Running"
+        ERROR = "error", "Error"
+        SUCCESS = "success", "Success"
 
-    selected_mountpoints = models.ManyToManyField(MountPoint, related_name="migrations")
     source = models.ForeignKey(
-        Workload, on_delete=models.CASCADE, related_name="migrations"
+        Workload,
+        on_delete=models.CASCADE,
+        related_name="migrations",
     )
     migration_target = models.ForeignKey(
-        MigrationTarget, on_delete=models.CASCADE, related_name="migrations"
+        MigrationTarget,
+        on_delete=models.CASCADE,
+        related_name="migrations",
+    )
+    selected_mountpoints = models.ManyToManyField(
+        MountPoint,
+        related_name="+",
     )
     state = models.CharField(
-        max_length=16, choices=STATE_CHOICES, default=STATE_NOT_STARTED
+        max_length=20,
+        choices=State.choices,
+        default=State.NOT_STARTED,
     )
 
-    def run(self, minutes: int = 1):
-        # cannot run if C:\ is selected
+    def run(self, simulated_minutes: int = 1):
+        """
+        Execute the migration:
+        - Disallow if 'C:\\' is selected
+        - Mark as running
+        - Sleep to simulate transfer
+        - Copy selected mount points onto the target VM
+        - Update state to SUCCESS or ERROR
+        """
         if self.selected_mountpoints.filter(mount_point_name__iexact="C:\\").exists():
-            raise ValidationError("Migration cannot include C:\\ volume.")
+            raise ValidationError("Migrations including C:\\ are not allowed.")
 
-        self.state = self.STATE_RUNNING
+        self.state = self.State.RUNNING
         self.save()
 
         try:
-            time.sleep(minutes * 60)
+            time.sleep(simulated_minutes * 60)
+
             target_vm = self.migration_target.target_vm
-            target_vm.mount_points.all().delete()
+            target_vm.mountpoints.all().delete()
 
             for mp in self.selected_mountpoints.all():
                 MountPoint.objects.create(
@@ -131,11 +153,13 @@ class Migration(models.Model):
                     total_size=mp.total_size,
                 )
 
-            self.state = self.STATE_SUCCESS
-        except Exception:
-            self.state = self.STATE_ERROR
-        finally:
+            self.state = self.State.SUCCESS
             self.save()
 
+        except Exception:
+            self.state = self.State.ERROR
+            self.save()
+            raise
+
     def __str__(self):
-        return f"Migration(source={self.source.ip}, target={self.migration_target}, state={self.state})"
+        return f"Migration({self.source.ip} → {self.migration_target.cloud_type}/{self.migration_target.target_vm.ip})"
